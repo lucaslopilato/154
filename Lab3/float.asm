@@ -28,10 +28,61 @@ main:
 
 
 # Add Function
-# $a0 contains A
-# $a1 contains B
-# $a2 contains result
+# A is item with smallest exponent
+# $s0 contains A sign
+# $s1 contains A exponent
+# $s2 contains A fraction
+# $a0 contains B sign
+# $a1 contains B exponent
+# $a2 contains B fraction
+
+# Result stored as
+# $s0 contains sign
+# $s1 contains exponent
+# $s2 containts fraction
 FADD:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    # Check if A's exponent is less than B
+    bge $a1, $s1, FADDInOrder
+    # Perform swap if needed
+
+    # Store Temporaries
+    add $t0, $s0, $zero 
+    add $t1, $s1, $zero 
+    add $t2, $s2, $zero
+
+    add $s0, $a0, $zero 
+    add $s1, $a1, $zero 
+    add $s2, $a2, $zero 
+
+    add $a0, $t0, $zero 
+    add $a1, $t1, $zero 
+    add $a2, $t2, $zero 
+
+    # Recall the Function
+    jal FADD
+    j FADDExit
+
+FADDInOrder:
+    # Shift Lesser Function Untill Exponents Equal
+    # $t0 tracks the number of shifts needed
+    sub $t0, $a1, $s1
+    sllv $s2, $s2, $t0
+
+    # Update Exponent
+    move $s1, $a1
+
+    # Perform Addition
+    
+
+#return
+FADDExit:
+lw $ra, 0($sp) 
+addi $sp, $sp, 4
+jr $ra
+
 
 
 
@@ -143,10 +194,10 @@ li $a2, 23
 jal ParseWord
 
 # Record Fraction TODO
-#lw $a3, 4($sp)
-#li $a1, 22
-#li $a2, 0
-#jal ParseWord
+lw $a3, 4($sp)
+li $a1, 22
+li $a2, 0
+jal ParseWord
 
 # return
 lw $ra, 0($sp)
@@ -199,12 +250,3 @@ ParseWordLoop:
 
 ParseWordLoopEnd:
     jr $ra
-
-
-
-
-
-
-
-
-    
