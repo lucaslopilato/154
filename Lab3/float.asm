@@ -6,21 +6,44 @@
 
 .data # TODO
 TwelvePointFive: .word 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ThreePointFive:  .word 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+AdditionResult:  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 
 .text
 .globl main
 
 # Test each Function
 main: 
-    la $a0, TwelvePointFive
-    jal DataToParts
-    add $s1, $v0, $zero
-    add $s2, $v1, $zero
+    addi $sp, $sp, -12
 
-    add $a1, $s0, $zero
-    add $a2, $s1, $zero
-    add $a3, $s2, $zero
-    jal PartsToData
+    # Load 12.5
+    la $a0, ThreePointFive
+    jal DataToParts
+    sw $s0, 0($sp)
+    sw $v0, 4($sp)
+    sw $v1, 8($sp)
+
+    # Load 3.5
+    la $a0, ThreePointFive
+    jal DataToParts
+    add $a0, $t0, $zero
+    add $s1, $v0, $zero
+    add $s2, $v1, $zero  
+
+    lw $a0, 0($sp)
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    addi $sp, $sp, 12
+
+    # 12.5 + 3.5
+    jal FADD 
+
+    # Save Results To Array
+    #la $a0, AdditionResult
+    #add $a1, $s0, $zero
+    #add $a2, $s1, $zero
+    #add $a3, $s2, $zero
+    #jal PartsToData
 
     li $v0, 10  # Exit
     syscall
@@ -66,16 +89,23 @@ FADD:
     j FADDExit
 
 FADDInOrder:
-    # Shift Lesser Function Untill Exponents Equal
+    # Shift Lesser Function Until Exponents Equal
     # $t0 tracks the number of shifts needed
+    #sub $t0, $a1, $s1
+    #sllv $s2, $s2, $t0
     sub $t0, $a1, $s1
-    sllv $s2, $s2, $t0
+    srlv $s2, $s2, $t0
 
     # Update Exponent
     move $s1, $a1
 
     # Perform Addition
-    
+    add $s2, $s2, $a2
+
+    # Normalize Results
+    jal Normalize
+
+
 
 #return
 FADDExit:
@@ -83,6 +113,52 @@ lw $ra, 0($sp)
 addi $sp, $sp, 4
 jr $ra
 
+
+
+# Normalizes 3 part representation to be in proper form
+# Also handles underflow and overflow
+# $s0 contains sign bit of number
+# $s1 contains exponent
+# $s2 contains fraction
+# Result returned in same registers
+Normalize:
+
+# $t0 holds wanted index
+addi $t0, $zero, 1
+sll $t0, $t0, 22
+
+NormalizeLessThanLoop:
+    # Check if the fraction needs left shift
+    bge $s2, $t0, NormalizeLessThanLoopEnd
+    sll $s2, $s2, 1
+    addi $s1, $s1, -1
+
+    # Check if underflow occurred
+    blt $s1, $zero, NormalizeUnderflow
+    j NormalizeLessThanLoop
+
+NormalizeLessThanLoopEnd:
+    # Check if fraction needs right shift
+    ble $s2, $t0, NormalizeGreaterThanLoopEnd
+
+    # Shift Right
+    srl $s2, $s2, 1
+    addi $s1, $s1, 1
+
+    # Check for overflow
+    addi $t1, $zero, 127
+    bgt $s1, $t1, NormalizeOverflow
+
+    j NormalizeLessThanLoopEnd
+
+NormalizeGreaterThanLoopEnd:
+    jr $ra
+
+NormalizeUnderflow:
+    jr $ra
+
+NormalizeOverflow:
+    jr $ra
 
 
 
@@ -111,6 +187,11 @@ addi $a1, $zero, 9
 addi $a2, $zero, 32
 jal ParseArray
 add $v1, $v0, $zero
+
+# Add the implicit 1 into the representation
+addi $t0, $zero, 1
+sll $t0, $t0, 22
+or $v1, $v1, $t0 
 
 # Extract Exponent
 addi $a1, $zero, 1 # Start Index
