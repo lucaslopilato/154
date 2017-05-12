@@ -5,9 +5,23 @@
 # Multiplication, and Subtraction
 
 .data # TODO
+.ascii "12.5"
 TwelvePointFive: .word 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+.ascii "3.5"
 ThreePointFive:  .word 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+.ascii "12.5+3.5"
 AdditionResult:  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+
+.ascii "2.5"
+TwoPointFive:    .word 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+
+.ascii "4.75"
+FourPointSevenFive: .word 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
+
+.ascii "2.5-4.75"
+SubtractionResult:  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 
 .text
 .globl main
@@ -17,7 +31,7 @@ main:
     addi $sp, $sp, -12
 
     # Load 12.5
-    la $a0, ThreePointFive
+    la $a0, TwelvePointFive
     jal DataToParts
     sw $s0, 0($sp)
     sw $v0, 4($sp)
@@ -33,17 +47,40 @@ main:
     lw $a0, 0($sp)
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addi $sp, $sp, 12
 
     # 12.5 + 3.5
     jal FADD 
 
     # Save Results To Array
-    #la $a0, AdditionResult
-    #add $a1, $s0, $zero
-    #add $a2, $s1, $zero
-    #add $a3, $s2, $zero
-    #jal PartsToData
+    la $a0, AdditionResult
+    add $a1, $s0, $zero
+    add $a2, $s1, $zero
+    add $a3, $s2, $zero
+    jal PartsToData
+
+    # Load 2.5
+    la $a0, TwoPointFive
+    jal DataToParts
+    sw $s0, 0($sp)
+    sw $v0, 4($sp)
+    sw $v1, 8($sp)
+
+    # Load 4.75
+    la $a0, FourPointSevenFive
+    jal DataToParts
+    add $a0, $t0, $zero
+    add $s1, $v0, $zero
+    add $s2, $v1, $zero  
+
+    lw $a0, 0($sp)
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+
+
+
+
+    # Reset 
+    addi $sp, $sp, 12
 
     li $v0, 10  # Exit
     syscall
@@ -104,8 +141,6 @@ FADDInOrder:
 
     # Normalize Results
     jal Normalize
-
-
 
 #return
 FADDExit:
@@ -190,7 +225,7 @@ add $v1, $v0, $zero
 
 # Add the implicit 1 into the representation
 addi $t0, $zero, 1
-sll $t0, $t0, 22
+sll $t0, $t0, 23
 or $v1, $v1, $t0 
 
 # Extract Exponent
