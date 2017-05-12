@@ -11,7 +11,7 @@ TwelvePointFive: .word 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 
 .ascii "3.5"
 ThreePointFive:  .word 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-.ascii "12.5+3.5"
+.ascii "AddResult"
 AdditionResult:  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 
 .ascii "2.5"
@@ -20,7 +20,7 @@ TwoPointFive:    .word 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 
 .ascii "4.75"
 FourPointSevenFive: .word 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 
-.ascii "2.5-4.75"
+.ascii "SubResult"
 SubtractionResult:  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 
 .text
@@ -40,7 +40,6 @@ main:
     # Load 3.5
     la $a0, ThreePointFive
     jal DataToParts
-    add $a0, $t0, $zero
     add $s1, $v0, $zero
     add $s2, $v1, $zero  
 
@@ -49,7 +48,7 @@ main:
     lw $a2, 8($sp)
 
     # 12.5 + 3.5
-    jal FADD 
+    # jal FADD 
 
     # Save Results To Array
     la $a0, AdditionResult
@@ -68,15 +67,22 @@ main:
     # Load 4.75
     la $a0, FourPointSevenFive
     jal DataToParts
-    add $a0, $t0, $zero
     add $s1, $v0, $zero
-    add $s2, $v1, $zero  
+    add $s2, $v1, $zero
 
     lw $a0, 0($sp)
     lw $a1, 4($sp)
     lw $a2, 8($sp)
 
+    # 4.75 - 2.5
+    jal FSUB
 
+    # Save Results To Array
+    la $a0, SubtractionResult
+    add $a1, $s0, $zero
+    add $a2, $s1, $zero
+    add $a3, $s2, $zero
+    jal PartsToData
 
 
     # Reset 
@@ -87,6 +93,95 @@ main:
 
 
 
+# Subtraction Function
+# A is the item being subtracted 
+# $s0 contains A sign
+# $s1 contains A exponent
+# $s2 contains A fraction
+# $a0 contains B sign
+# $a1 contains B exponent
+# $a2 contains B fraction
+# result in s registers
+FSUB:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    beq $s0, $zero, FSUBAPOS
+    add $s0, $zero, $zero
+    j FSUBCALL
+
+FSUBAPOS:
+    addi $s0, $zero, 1
+
+FSUBCALL:
+    jal FADD
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra    
+
+
+
+# on input 
+# $v0 has sign
+# $v1 has fraction
+# Output in same spot
+ComplimentIfNecessary:
+    addi $t0, $zero, 1
+    bne $v0, $t0, ComplimentIfNecessaryEnd
+
+    # set sign = 0
+    addi $v0, $zero, 0
+
+    # Get negation
+    addi $t0, $zero, -1
+    mult $v1, $t0
+    mflo $v1
+
+
+ComplimentIfNecessaryEnd:
+    jr $ra
+    
+
+
+# Undo 2's Compliment 
+# $v0 has sign
+# $v1 has fraction 
+UndoComplimentIfNecessary:
+    bge $v1, $zero, UCINExit
+
+    # Check if sign is positive
+    bne $v0, $zero, UCINSignNeg
+    # Check if float is negative
+    slt $t0, $v1, $zero
+    bne $t0, $zero, UCINSignPosFloatNeg
+
+    # Nothing to do
+    j UCINExit
+
+UCINSignPosFloatNeg:
+    addi $v0, $zero, 1
+    addi $t0, $zero, -1
+    mult $v1, $t0
+    mflo $v1
+
+    j UCINExit
+
+UCINSignNeg:
+    # Sign Negative Float positive
+    beq $t0, $zero, UCINExit
+
+    # Otherwise Both Sign and Float Negative
+    addi $v0, $zero, 0
+    addi $t0, $zero, -1
+    mult $v1, $t0
+    mflo $v1
+
+    # set sign
+
+UCINExit:
+    jr $ra   
+    
 # Add Function
 # A is item with smallest exponent
 # $s0 contains A sign
@@ -130,6 +225,19 @@ FADDInOrder:
     # $t0 tracks the number of shifts needed
     #sub $t0, $a1, $s1
     #sllv $s2, $s2, $t0
+    # Check for 2's Compliment
+    add $v0, $s0, $zero
+    add $v1, $s2, $zero
+    jal ComplimentIfNecessary
+    add $s0, $v0, $zero
+    add $s2, $v1, $zero
+
+    add $v0, $a0, $zero
+    add $v1, $a2, $zero
+    jal ComplimentIfNecessary
+    add $a0, $v0, $zero
+    add $a2, $v1, $zero
+
     sub $t0, $a1, $s1
     srlv $s2, $s2, $t0
 
@@ -138,6 +246,12 @@ FADDInOrder:
 
     # Perform Addition
     add $s2, $s2, $a2
+
+    add $v0, $s0, $zero
+    add $v1, $s2, $zero
+    jal UndoComplimentIfNecessary
+    add $s0, $v0, $zero
+    add $s2, $v1, $zero
 
     # Normalize Results
     jal Normalize
@@ -174,7 +288,8 @@ NormalizeLessThanLoop:
 
 NormalizeLessThanLoopEnd:
     # Check if fraction needs right shift
-    ble $s2, $t0, NormalizeGreaterThanLoopEnd
+    sll $t1, $t0, 1
+    blt $s2, $t1, NormalizeGreaterThanLoopEnd
 
     # Shift Right
     srl $s2, $s2, 1
